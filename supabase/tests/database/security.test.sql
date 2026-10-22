@@ -29,8 +29,11 @@ select throws_ok($$select public.consume_llm_quota('search')$$, '42501', null, '
 reset role;
 
 -- ───────── Signed-in view: the same for everyone ─────────
+-- Counted before switching roles, so local sign-ups on top of the seed don't break the test.
+select set_config('test.visible_profiles', (select count(*) from public.profiles where visible)::text, true);
 select pg_temp.act_as(1);
-select is((select count(*)::int from public.profiles), 60, 'a member sees every visible profile');
+select is((select count(*)::int from public.profiles), current_setting('test.visible_profiles')::int,
+          'a member sees every visible profile');
 select ok(exists (select 1 from public.profile_entities pe join public.entities e on e.id = pe.entity_id
                   where e.kind = 'country' and pe.profile_id <> auth.uid()),
           'a member sees other people''s country of origin');
