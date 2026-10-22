@@ -26,7 +26,9 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
-  const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
+  // Remembers whose profile was loaded: right after sign-in (or a reload) the session is known before
+  // the profile query returns, and an earlier "no profile" must not be read as this user's.
+  const [loaded, setLoaded] = useState<{ userId: string; profile: Profile | null } | null>(null);
   const [failed, setFailed] = useState(false);
   const userId = session?.user.id;
 
@@ -39,23 +41,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reloadProfile = useCallback(async () => {
-    if (!userId) {
-      setProfile(null);
-      return;
-    }
+    if (!userId) return;
     const { data, error } = await supabase
       .from('profiles')
       .select('id, full_name, headline, linkedin_url, grad_year, avatar_url')
       .eq('id', userId)
       .maybeSingle();
     setFailed(!!error);
-    if (!error) setProfile(data);
+    if (!error) setLoaded({ userId, profile: data });
   }, [userId]);
 
   useEffect(() => {
-    setProfile(undefined);
     reloadProfile();
   }, [reloadProfile]);
+
+  const profile = loaded && loaded.userId === userId ? loaded.profile : undefined;
 
   const status: AuthStatus =
     session === undefined ? 'loading'

@@ -95,6 +95,19 @@ export function Button({
   );
 }
 
+export function Chip({ label, onRemove }: { label: string; onRemove?: () => void }) {
+  return (
+    <View style={styles.chip}>
+      <Text style={styles.chipText}>{label}</Text>
+      {onRemove ? (
+        <Pressable onPress={onRemove} accessibilityRole="button" accessibilityLabel={`Remove ${label}`} hitSlop={8}>
+          <Text style={styles.chipRemove}>×</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 export function Loading() {
   return (
     <View style={[styles.safe, styles.center]}>
@@ -142,4 +155,17 @@ const styles = StyleSheet.create({
   buttonSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.primary },
   buttonInactive: { opacity: 0.6 },
   buttonText: { fontSize: 16, fontWeight: '600', color: colors.surface },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  chipText: { fontSize: 14, color: colors.text },
+  chipRemove: { fontSize: 18, lineHeight: 18, color: colors.muted },
 });

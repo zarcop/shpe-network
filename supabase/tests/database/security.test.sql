@@ -3,7 +3,7 @@
 -- every 5th has no country. So 1, 2 and 6 all have a country.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(29);
+select plan(30);
 
 create function pg_temp.act_as(p_n int) returns void language sql as $$
   select set_config('role', 'authenticated', true),
@@ -81,6 +81,9 @@ select is(public.entity_id_for('company', 'SpaceX'), public.entity_id_for('compa
           'a new hub is created once and reused');
 select is((select name from public.similar_entities('school', 'University of Florid') limit 1),
           'University of Florida', 'similar_entities suggests the closest hub');
+select results_eq($$select name, score from public.similar_entities('school', ' UPRM ') limit 1$$,
+                  $$values ('University of Puerto Rico at Mayagüez'::text, 1::real)$$,
+                  'an exact alias is the top suggestion with full confidence');
 select pg_temp.act_as(999);
 select throws_ok($$select public.entity_id_for('school', 'X')$$, '42501', null,
                  'users without a profile cannot create hubs');

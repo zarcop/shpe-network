@@ -58,7 +58,7 @@ const profileFormSchema = z.object({
 });
 
 export type ProfileForm = z.input<typeof profileFormSchema>;
-type ProfileInput = z.output<typeof profileFormSchema>;
+export type ProfileInput = z.output<typeof profileFormSchema>;
 
 export type FieldErrors = Partial<Record<keyof ProfileForm, string>>;
 
