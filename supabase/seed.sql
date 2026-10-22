@@ -1,107 +1,137 @@
--- Local development data only: `supabase db reset` loads it; deploys never do.
--- Canonical hubs with the spellings resumes actually use, plus 60 fake people to draw a graph with.
+-- Fake people for local development and the staging project only. Production is never seeded.
+-- 300 attendees with realistic spreads (a few big schools and a long tail, interns at sponsor companies, mixed
+-- roots, ~10% recruiters) so the graph and search can be tested at the convention's real size.
+-- Deterministic: the same 300 people on every run. Safe to rerun: everything is "on conflict do nothing".
+-- Emails use the reserved .test domain, so nobody can sign in as a fake person; no LinkedIn links are generated,
+-- because a made-up URL could belong to a real person.
 
-insert into public.entities (kind, name, aliases) values
-  ('school', 'University of Florida', '{uf,"univ. of florida"}'),
-  ('school', 'Florida International University', '{fiu}'),
-  ('school', 'University of Central Florida', '{ucf}'),
-  ('school', 'The University of Texas at Austin', '{"ut austin","university of texas at austin",utexas}'),
-  ('school', 'Texas A&M University', '{tamu,"texas a&m","texas a and m"}'),
-  ('school', 'The University of Texas at El Paso', '{utep}'),
-  ('school', 'University of Puerto Rico at Mayagüez', '{uprm,"upr mayaguez","university of puerto rico mayaguez"}'),
-  ('school', 'Georgia Institute of Technology', '{"georgia tech",gatech}'),
-  ('school', 'Purdue University', '{purdue}'),
-  ('school', 'Arizona State University', '{asu}'),
-  ('school', 'University of Illinois Urbana-Champaign', '{uiuc,"university of illinois"}'),
-  ('school', 'Massachusetts Institute of Technology', '{mit}'),
-  ('school', 'University of California, Berkeley', '{"uc berkeley",berkeley,cal}'),
-  ('school', 'University of California, Los Angeles', '{ucla}'),
-  ('school', 'California State Polytechnic University, Pomona', '{"cal poly pomona",cpp}'),
+-- A stable number in [0, 1) for person i and a purpose, so each choice is independent but repeatable.
+create function pg_temp.rnd(i int, purpose text) returns double precision
+language sql immutable as $$
+  select ('x' || substr(md5(i || ':' || purpose), 1, 8))::bit(32)::bigint / 4294967296.0
+$$;
 
-  ('company', 'Boeing', '{"the boeing company"}'),
-  ('company', 'Lockheed Martin', '{lmco,"lockheed martin corporation"}'),
-  ('company', 'Northrop Grumman', '{ngc}'),
-  ('company', 'RTX', '{raytheon,"raytheon technologies","pratt & whitney","collins aerospace"}'),
-  ('company', 'GE Aerospace', '{"general electric",ge}'),
-  ('company', 'NASA', '{"nasa jpl",jpl,"jet propulsion laboratory"}'),
-  ('company', 'Google', '{alphabet,"google llc"}'),
-  ('company', 'Microsoft', '{msft,"microsoft corporation"}'),
-  ('company', 'Amazon', '{aws,"amazon web services"}'),
-  ('company', 'Apple', '{"apple inc."}'),
-  ('company', 'Meta', '{facebook,"meta platforms"}'),
-  ('company', 'Intel', '{"intel corporation"}'),
-  ('company', 'Texas Instruments', '{ti}'),
-  ('company', 'Chevron', '{}'),
-  ('company', 'ExxonMobil', '{exxon,"exxon mobil"}'),
-  ('company', 'Deloitte', '{}'),
-  ('company', 'Accenture', '{}'),
+-- Weighted choice: names[k] is picked with probability weights[k] / sum(weights).
+create function pg_temp.pick(names text[], weights int[], r double precision) returns text
+language plpgsql immutable as $$
+declare
+  target double precision := r * (select sum(w) from unnest(weights) as w);
+  total int := 0;
+begin
+  for k in 1..cardinality(names) loop
+    total := total + weights[k];
+    if target < total then return names[k]; end if;
+  end loop;
+  return names[cardinality(names)];
+end $$;
 
-  ('country', 'United States', '{usa,us,"united states of america"}'),
-  ('country', 'Mexico', '{méxico}'),
-  ('country', 'Puerto Rico', '{pr}'),
-  ('country', 'Colombia', '{}'),
-  ('country', 'Venezuela', '{}'),
-  ('country', 'Cuba', '{}'),
-  ('country', 'Dominican Republic', '{"república dominicana",rd}'),
-  ('country', 'Peru', '{perú}'),
-  ('country', 'Argentina', '{}'),
-  ('country', 'El Salvador', '{}'),
-  ('country', 'Guatemala', '{}'),
-  ('country', 'Ecuador', '{}'),
-  ('country', 'Brazil', '{brasil}'),
-  ('country', 'Spain', '{españa}'),
+do $$
+declare
+  first_names text[] := array['Sofía','Mateo','Valentina','Santiago','Camila','Diego','Isabella','Andrés','Lucía',
+    'Javier','Gabriela','Carlos','Daniela','Luis','Mariana','Alejandro','Natalia','José','Ana','Miguel','Paola',
+    'Ricardo','Elena','Fernando','Adriana','Jorge','Carolina','Emilio','Ximena','Rafael','Valeria','Eduardo',
+    'Andrea','Héctor','Beatriz','Iván','Renata','Óscar','Julia','Tomás'];
+  last_names text[] := array['García','Rodríguez','Martínez','Hernández','López','González','Pérez','Sánchez',
+    'Ramírez','Torres','Flores','Rivera','Gómez','Díaz','Cruz','Morales','Reyes','Ortiz','Gutiérrez','Chávez',
+    'Ramos','Vargas','Castillo','Jiménez','Moreno','Romero','Herrera','Medina','Aguilar','Vega','Castro','Mendoza',
+    'Ruiz','Álvarez','Delgado','Soto','Contreras','Guerrero','Navarro','Acosta'];
 
-  ('major', 'Mechanical Engineering', '{me,meche}'),
-  ('major', 'Electrical Engineering', '{ee}'),
-  ('major', 'Computer Engineering', '{ce,"comp e"}'),
-  ('major', 'Computer Science', '{cs,"comp sci"}'),
-  ('major', 'Aerospace Engineering', '{"aero engineering",aero}'),
-  ('major', 'Civil Engineering', '{}'),
-  ('major', 'Chemical Engineering', '{cheme,"che"}'),
-  ('major', 'Industrial Engineering', '{ie,"industrial and systems engineering"}'),
-  ('major', 'Biomedical Engineering', '{bme}'),
-  ('major', 'Data Science', '{}');
+  schools text[] := array['University of Florida','Florida International University',
+    'University of Puerto Rico at Mayagüez','Texas A&M University','The University of Texas at Austin',
+    'University of Central Florida','The University of Texas at El Paso','Georgia Institute of Technology',
+    'Arizona State University','Purdue University','University of Illinois Urbana-Champaign',
+    'California State Polytechnic University, Pomona','University of Houston','The University of Texas at San Antonio',
+    'University of California, Los Angeles','University of California, Berkeley','Florida State University',
+    'University of Miami','New Jersey Institute of Technology','Rutgers University','University of Michigan',
+    'Massachusetts Institute of Technology','Stanford University','University of California, San Diego',
+    'San José State University','Miami Dade College','Polytechnic University of Puerto Rico'];
+  school_weights int[] := array[12,10,9,8,7,7,6,5,5,4,4,4,4,3,3,3,3,2,2,2,2,2,2,2,2,2,2];
 
--- 60 fake people, deterministic so the graph looks the same after every reset.
--- Every 6th person is a recruiter (by headline only); every 5th leaves country of origin blank.
-with people as (
-  select i,
-         ('00000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid as id,
-         (array['Sofía','Mateo','Valentina','Santiago','Camila','Diego','Isabella','Andrés','Lucía','Javier',
-                'Gabriela','Carlos','Daniela','Luis','Mariana','Alejandro'])[1 + (i * 7) % 16] || ' ' ||
-         (array['García','Rodríguez','Martínez','Hernández','López','González','Pérez','Sánchez','Ramírez',
-                'Torres','Flores','Rivera','Gómez','Díaz','Cruz','Morales','Reyes'])[1 + (i * 11) % 17] as full_name,
-         i % 6 = 0 as is_recruiter
-  from generate_series(1, 60) as i
-),
-new_users as (
-  insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
-                          raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
-  select '00000000-0000-0000-0000-000000000000', id, 'authenticated', 'authenticated',
-         'demo' || i || '@shpe-network.test', '', now(),
-         '{"provider":"email","providers":["email"]}', '{}', now(), now()
-  from people
-  returning id
-)
-insert into public.profiles (id, full_name, headline, grad_year)
-select p.id, p.full_name,
-       case when p.is_recruiter then 'University Recruiter' else 'Engineering student' end,
-       case when not p.is_recruiter then 2025 + p.i % 4 end
-from people p join new_users u on u.id = p.id;
+  majors text[] := array['Mechanical Engineering','Computer Science','Electrical Engineering','Computer Engineering',
+    'Aerospace Engineering','Civil Engineering','Chemical Engineering','Industrial Engineering',
+    'Biomedical Engineering','Data Science','Materials Science and Engineering','Environmental Engineering',
+    'Physics','Mathematics'];
+  major_weights int[] := array[22,18,14,12,8,7,7,6,4,3,2,2,1,1];
 
-with hubs as (
-  select kind, array_agg(id order by id) as ids from public.entities group by kind
-),
-people as (
-  select row_number() over (order by id) as i, id from public.profiles
-)
-insert into public.profile_entities (profile_id, entity_id)
-select p.id, e.entity_id
-from people p
-cross join lateral (
-  select h.ids[1 + (p.i * 3) % cardinality(h.ids)] from hubs h where h.kind = 'school'
-  union select h.ids[1 + (p.i * 5) % cardinality(h.ids)] from hubs h where h.kind = 'major'
-  union select h.ids[1 + (p.i * 2) % cardinality(h.ids)] from hubs h where h.kind = 'company'
-  union select h.ids[1 + (p.i * 7 + 3) % cardinality(h.ids)] from hubs h where h.kind = 'company' and p.i % 3 = 0
-  union select h.ids[1 + (p.i * 13) % cardinality(h.ids)] from hubs h where h.kind = 'country' and p.i % 5 <> 0
-) as e(entity_id);
+  companies text[] := array['Lockheed Martin','Boeing','RTX','Northrop Grumman','Google','Microsoft','Amazon',
+    'Intel','Texas Instruments','GE Aerospace','NASA','Apple','Meta','SpaceX','Blue Origin','Tesla','Honeywell',
+    'Chevron','ExxonMobil','Dow','Procter & Gamble','Johnson & Johnson','Ford Motor Company','General Motors',
+    'Caterpillar','IBM','Capital One','JPMorgan Chase','Deloitte','Accenture','Bechtel','Kiewit'];
+  company_weights int[] := array[9,8,7,6,6,6,6,5,5,5,5,4,4,4,3,3,3,3,3,3,3,2,3,3,2,2,2,2,3,3,2,2];
+
+  countries text[] := array['Mexico','Puerto Rico','Colombia','Cuba','Dominican Republic','Venezuela','El Salvador',
+    'Peru','United States','Guatemala','Ecuador','Honduras','Argentina','Nicaragua','Costa Rica','Panama',
+    'Bolivia','Chile','Brazil','Spain'];
+  country_weights int[] := array[35,15,8,7,6,5,5,4,5,3,3,3,2,2,1,1,1,1,1,1];
+
+  i int;
+  person uuid;
+  recruiter boolean;
+  school text;
+  major text;
+  employer text;
+  hub_names text[];
+  n_companies int;
+  r double precision;
+begin
+  for i in 1..300 loop
+    person := ('00000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
+    recruiter := i % 10 = 0;
+    school := pg_temp.pick(schools, school_weights, pg_temp.rnd(i, 'school'));
+    major := pg_temp.pick(majors, major_weights, pg_temp.rnd(i, 'major'));
+    employer := pg_temp.pick(companies, company_weights, pg_temp.rnd(i, 'company1'));
+
+    insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+                            raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+    values ('00000000-0000-0000-0000-000000000000', person, 'authenticated', 'authenticated',
+            'fake' || i || '@shpe-network.test', '', now(),
+            '{"provider":"email","providers":["email"]}', '{}', now(), now())
+    on conflict (id) do nothing;
+
+    insert into public.profiles (id, full_name, headline, grad_year, visible)
+    values (
+      person,
+      first_names[1 + floor(pg_temp.rnd(i, 'first') * cardinality(first_names))::int] || ' ' ||
+        last_names[1 + floor(pg_temp.rnd(i, 'last') * cardinality(last_names))::int] ||
+        -- Some people go by both family names.
+        case when pg_temp.rnd(i, 'second last') < 0.15
+             then ' ' || last_names[1 + floor(pg_temp.rnd(i, 'last2') * cardinality(last_names))::int] else '' end,
+      case when recruiter then 'University Recruiter at ' || employer else major || ' student at ' || school end,
+      case when recruiter then null else 2025 + floor(pg_temp.rnd(i, 'grad') * 5)::int end,
+      pg_temp.rnd(i, 'hidden') >= 0.03
+    )
+    on conflict (id) do nothing;
+
+    -- Everyone has a school and a major; some have a second of each (grad school, double majors).
+    hub_names := array['school:' || school, 'major:' || major];
+    if not recruiter and pg_temp.rnd(i, 'second school') < 0.12 then
+      hub_names := hub_names || ('school:' || pg_temp.pick(schools, school_weights, pg_temp.rnd(i, 'school2')));
+    end if;
+    if pg_temp.rnd(i, 'second major') < 0.08 then
+      hub_names := hub_names || ('major:' || pg_temp.pick(majors, major_weights, pg_temp.rnd(i, 'major2')));
+    end if;
+
+    -- Recruiters list their employer; students have had 0–3 internships.
+    r := pg_temp.rnd(i, 'internships');
+    n_companies := case when recruiter then 1 when r < 0.25 then 0 when r < 0.70 then 1 when r < 0.92 then 2 else 3 end;
+    for k in 1..n_companies loop
+      hub_names := hub_names ||
+        ('company:' || case when k = 1 then employer
+                            else pg_temp.pick(companies, company_weights, pg_temp.rnd(i, 'company' || k)) end);
+    end loop;
+
+    -- Roots are optional: most people add one, some add two.
+    if pg_temp.rnd(i, 'roots') >= 0.18 then
+      hub_names := hub_names || ('country:' || pg_temp.pick(countries, country_weights, pg_temp.rnd(i, 'root1')));
+      if pg_temp.rnd(i, 'two roots') < 0.15 then
+        hub_names := hub_names || ('country:' || pg_temp.pick(countries, country_weights, pg_temp.rnd(i, 'root2')));
+      end if;
+    end if;
+
+    insert into public.profile_entities (profile_id, entity_id)
+    select person, e.id
+    from unnest(hub_names) as h
+    join public.entities e on e.kind = split_part(h, ':', 1) and e.name = substr(h, strpos(h, ':') + 1)
+    on conflict do nothing;
+  end loop;
+end $$;

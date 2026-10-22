@@ -20,10 +20,9 @@ export function Screen({ children }: { children: ReactNode }) {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.brand}>
-            <Text style={styles.brandMark}>SHPE</Text>
-            <Text style={styles.brandName}>Network</Text>
-          </View>
+          <Text style={styles.brand} accessibilityRole="header">
+            Who is going to <Text style={styles.brandShpe}>SHPE?</Text>
+          </Text>
           <View style={styles.card}>{children}</View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -121,9 +120,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { alignItems: 'center', justifyContent: 'center' },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: 16, alignItems: 'center' },
-  brand: { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginBottom: 20 },
-  brandMark: { fontSize: 26, fontWeight: '800', color: colors.navy, letterSpacing: 1 },
-  brandName: { fontSize: 26, fontWeight: '600', color: colors.orange },
+  brand: { fontSize: 24, fontWeight: '700', color: colors.navy, textAlign: 'center', marginBottom: 20 },
+  brandShpe: { fontWeight: '800', color: colors.orange, letterSpacing: 1 },
   card: {
     width: '100%',
     maxWidth: 420,
@@ -150,11 +148,18 @@ const styles = StyleSheet.create({
   },
   inputError: { borderColor: colors.error },
   error: { fontSize: 13, color: colors.error },
-  button: { borderRadius: 24, paddingVertical: 12, alignItems: 'center', minHeight: 46, justifyContent: 'center' },
+  button: {
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    minHeight: 46,
+    justifyContent: 'center',
+  },
   buttonPrimary: { backgroundColor: colors.primary },
   buttonSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.primary },
   buttonInactive: { opacity: 0.6 },
-  buttonText: { fontSize: 16, fontWeight: '600', color: colors.surface },
+  buttonText: { fontSize: 16, fontWeight: '600', color: colors.surface, textAlign: 'center' },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',

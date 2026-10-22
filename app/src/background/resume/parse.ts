@@ -4,7 +4,7 @@ import type { Line } from './pdf-lines';
 
 // Reads schools, companies and majors out of resume or LinkedIn PDF text with fixed rules: the same file
 // always gives the same answer, it runs on the phone, and nothing is sent anywhere. It only suggests:
-// people review the result on the background screen. Country of origin is never read from a resume.
+// people review the result on the background screen. Roots (the country hub) are never read from a resume.
 
 export type KnownHub = { kind: HubKind; name: string; aliases: string[] };
 

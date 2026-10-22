@@ -72,7 +72,7 @@ export default function Background() {
     <Screen>
       <Title>Your background</Title>
       <Body>
-        This is what connects you to other people at SHPE: the colleges, companies, majors and country you share.
+        This is what connects you to other people at SHPE: the colleges, companies, majors and roots you share.
       </Body>
       <ErrorText>{loadError}</ErrorText>
 

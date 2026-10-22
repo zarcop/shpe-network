@@ -32,7 +32,7 @@ export default function Home() {
         <View style={styles.callout}>
           <Text style={styles.calloutTitle}>Add your background</Text>
           <Body>
-            Your colleges, companies, majors and country are what connect you to others. Upload your resume or LinkedIn
+            Your colleges, companies, majors and roots are what connect you to others. Upload your resume or LinkedIn
             PDF to fill it in, or add it yourself.
           </Body>
           <Button title="Add your background" onPress={() => router.push('/background')} />

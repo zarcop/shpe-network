@@ -6,11 +6,21 @@ export type Hubs = Record<HubKind, string[]>;
 
 export const HUB_LIMITS: Record<HubKind, number> = { school: 5, company: 10, country: 3, major: 3 };
 
-export const HUB_LABELS: Record<HubKind, { title: string; placeholder: string; hint?: string }> = {
-  school: { title: 'Colleges', placeholder: 'e.g. University of Florida' },
-  company: { title: 'Companies', placeholder: 'e.g. Lockheed Martin', hint: 'Jobs, internships, co-ops and research labs.' },
-  major: { title: 'Majors', placeholder: 'e.g. Mechanical Engineering' },
-  country: { title: 'Country of origin', placeholder: 'e.g. Colombia', hint: 'Optional. Add it if you’d like to connect over it.' },
+export const HUB_LABELS: Record<HubKind, { title: string; addLabel: string; placeholder: string; hint?: string }> = {
+  school: { title: 'Colleges', addLabel: 'Add a college', placeholder: 'e.g. University of Florida' },
+  company: {
+    title: 'Companies',
+    addLabel: 'Add a company',
+    placeholder: 'e.g. Lockheed Martin',
+    hint: 'Jobs, internships, co-ops and research labs.',
+  },
+  major: { title: 'Majors', addLabel: 'Add a major', placeholder: 'e.g. Mechanical Engineering' },
+  country: {
+    title: 'Where are your roots?',
+    addLabel: 'Add a country',
+    placeholder: 'e.g. Mexico',
+    hint: 'Optional. The countries you or your family come from, up to 3.',
+  },
 };
 
 export const emptyHubs = (): Hubs => ({ school: [], company: [], major: [], country: [] });

@@ -64,7 +64,7 @@ export function HubField({
         <Text style={styles.hint}>That’s the most you can add here. Remove one to add another.</Text>
       ) : (
         <Field
-          label={`Add ${label.title.toLowerCase()}`}
+          label={label.addLabel}
           value={text}
           onChangeText={setText}
           placeholder={label.placeholder}

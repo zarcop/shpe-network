@@ -1,6 +1,5 @@
 -- Row level security and LLM quotas, tested against the seed data.
--- Seed ids: person i is 00000000-0000-4000-8000-<i padded to 12>; every 6th has a recruiter headline,
--- every 5th has no country. So 1, 2 and 6 all have a country.
+-- Seed ids: person i is 00000000-0000-4000-8000-<i padded to 12>; every 10th is a recruiter (seed.sql).
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(30);
@@ -37,10 +36,10 @@ select is((select count(*)::int from public.profiles), current_setting('test.vis
 select ok(exists (select 1 from public.profile_entities pe join public.entities e on e.id = pe.entity_id
                   where e.kind = 'country' and pe.profile_id <> auth.uid()),
           'a member sees other people''s country of origin');
-select pg_temp.act_as(6);
+select pg_temp.act_as(10);
 select ok(exists (select 1 from public.profile_entities pe join public.entities e on e.id = pe.entity_id
                   where e.kind = 'country' and pe.profile_id <> auth.uid()),
-          'a recruiter sees country of origin too');
+          'a recruiter sees roots too');
 select pg_temp.act_as(999);
 select is((select count(*)::int from public.profiles), 0, 'without a profile you see no one');
 select is((select count(*)::int from public.profile_entities), 0, 'without a profile you see no edges');

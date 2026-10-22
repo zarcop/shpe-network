@@ -147,7 +147,7 @@ test('short aliases only count as standalone capitals', async () => {
   assert.deepEqual(hubs, { school: [], company: [], major: [], country: [] });
 });
 
-test('country of origin is never read from a resume', async () => {
+test('roots are never read from a resume', async () => {
   const hubs = await parse([stack(50, 700, [[12, 'Education'], [10.5, 'Universidad de los Andes, Bogotá, Colombia']])]);
   assert.deepEqual(hubs.country, []);
   assert.deepEqual(hubs.school, ['Universidad de los Andes']);
