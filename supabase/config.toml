@@ -176,7 +176,8 @@ refresh_token_reuse_interval = 10
 # Allow/disallow new user signups to your project.
 enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
-enable_anonymous_sign_ins = false
+# On: "Join now" starts as a guest with no email (D17). Guests can save their account with an email later.
+enable_anonymous_sign_ins = true
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
@@ -202,7 +203,8 @@ email_sent = 200
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
-anonymous_users = 30
+# Convention Wi-Fi puts everyone behind one IP, so 30/hour would lock people out.
+anonymous_users = 500
 # Number of sessions that can be refreshed in a 5 minute interval per IP address.
 token_refresh = 150
 # Number of sign up and sign-in requests that can be made in a 5 minute interval per IP address (excludes anonymous users).
@@ -225,7 +227,9 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# Must stay on: when off, a guest saving their account gets the email they typed with no code, so they could
+# claim someone else's address. Code sign-in is unaffected (entering the code confirms the email).
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
@@ -254,6 +258,11 @@ content_path = "./supabase/templates/code.html"
 
 [auth.email.template.magic_link]
 subject = "Your sign-in code for Who is going to SHPE?"
+content_path = "./supabase/templates/code.html"
+
+# A guest saving their account: the code confirms the email they add.
+[auth.email.template.email_change]
+subject = "Your code to save your Who is going to SHPE? account"
 content_path = "./supabase/templates/code.html"
 
 # Uncomment to customize email template

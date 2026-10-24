@@ -27,6 +27,9 @@ test('auth errors map to plain messages, never raw server text', () => {
   assert.match(authErrorMessage({ code: 'otp_expired' })!, /wrong or has expired/);
   assert.match(authErrorMessage({ code: 'over_email_send_rate_limit' })!, /Wait a minute/);
   assert.match(authErrorMessage({ status: 429 })!, /Wait a minute/);
+  // Joining as a guest is rate limited too: that message must not talk about codes.
+  assert.doesNotMatch(authErrorMessage({ code: 'over_request_rate_limit', status: 429 })!, /code/);
+  assert.match(authErrorMessage({ code: 'email_exists', status: 422 })!, /already has an account/);
   assert.match(authErrorMessage({ code: 'something_new' })!, /Something went wrong/);
 });
 

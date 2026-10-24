@@ -4,8 +4,9 @@ export function authErrorMessage(error: { code?: string; status?: number } | nul
   if (!error) return null;
   switch (error.code) {
     case 'over_email_send_rate_limit':
-    case 'over_request_rate_limit':
       return 'Too many codes requested. Wait a minute, then try again.';
+    case 'email_exists':
+      return 'That email already has an account. Sign out and sign in with it, or use another email.';
     case 'otp_expired':
       return 'That code is wrong or has expired. Check the latest email or send a new code.';
     case 'email_address_invalid':

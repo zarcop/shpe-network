@@ -11,9 +11,12 @@ import { colors } from '@/ui/theme';
 
 // Your own profile and background, reached from the graph's header.
 export default function Profile() {
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const [hubs, setHubs] = useState<Hubs | null>(null);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const p = profile!;
+  // A guest who signs out can never get back in: the account has no email to sign in with.
+  const isGuest = !!session?.user.is_anonymous;
 
   // Reload on every visit: you come back here after editing your background.
   useFocusEffect(
@@ -27,6 +30,14 @@ export default function Profile() {
       <Title>{p.full_name}</Title>
       {p.headline ? <Body>{p.headline}</Body> : null}
       {p.grad_year ? <Body>Class of {p.grad_year}</Body> : null}
+
+      {isGuest ? (
+        <View style={styles.callout}>
+          <Text style={styles.calloutTitle}>Save your account</Text>
+          <Body>You joined as a guest, so your profile lives only in this browser. Add your email to keep it and come back on any device.</Body>
+          <Button title="Save your account" onPress={() => router.push('/save-account')} />
+        </View>
+      ) : null}
 
       {hubs && isEmpty(hubs) ? (
         <View style={styles.callout}>
@@ -57,7 +68,21 @@ export default function Profile() {
       ) : null}
       <Button title="Edit profile" variant="secondary" onPress={() => router.push('/edit-profile')} />
       <Button title="Back to the graph" variant="secondary" onPress={() => router.dismissTo('/')} />
-      <Button title="Sign out" variant="secondary" onPress={() => supabase.auth.signOut()} />
+      {confirmSignOut && isGuest ? (
+        <View style={styles.callout}>
+          <Text style={styles.calloutTitle}>Sign out and lose your profile?</Text>
+          <Body>Your account isn’t saved, so you won’t be able to sign back in. Save your account first to keep it.</Body>
+          <Button title="Save your account" onPress={() => router.push('/save-account')} />
+          <Button title="Sign out anyway" variant="secondary" onPress={() => supabase.auth.signOut()} />
+          <Button title="Cancel" variant="secondary" onPress={() => setConfirmSignOut(false)} />
+        </View>
+      ) : (
+        <Button
+          title="Sign out"
+          variant="secondary"
+          onPress={() => (isGuest ? setConfirmSignOut(true) : supabase.auth.signOut())}
+        />
+      )}
     </Screen>
   );
 }

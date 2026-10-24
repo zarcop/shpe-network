@@ -42,6 +42,7 @@ function RootNavigator() {
         <Stack.Screen name="profile" />
         <Stack.Screen name="background" />
         <Stack.Screen name="edit-profile" />
+        <Stack.Screen name="save-account" />
       </Stack.Protected>
     </Stack>
   );
