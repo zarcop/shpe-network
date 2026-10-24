@@ -11,3 +11,12 @@ export const colors = {
   orange: '#F58025',
   error: '#B3261E',
 };
+
+// One color per hub kind in the graph, checked as a set for color-blind separation (dataviz validator, all pairs).
+// Kinds also differ by shape and every hub is labeled, so color is never the only cue.
+export const hubColors = {
+  school: '#2A78D6',
+  company: '#EB6834',
+  major: '#1BAF7A',
+  country: '#B0306A',
+} as const;

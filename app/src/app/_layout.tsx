@@ -39,6 +39,7 @@ function RootNavigator() {
       </Stack.Protected>
       <Stack.Protected guard={status === 'ready'}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="profile" />
         <Stack.Screen name="background" />
         <Stack.Screen name="edit-profile" />
       </Stack.Protected>

@@ -9,8 +9,8 @@ import { supabase } from '@/lib/supabase';
 import { Body, Button, Chip, Screen, Title } from '@/ui/kit';
 import { colors } from '@/ui/theme';
 
-// Your profile at a glance until the graph screen exists.
-export default function Home() {
+// Your own profile and background, reached from the graph's header.
+export default function Profile() {
   const { profile } = useAuth();
   const [hubs, setHubs] = useState<Hubs | null>(null);
   const p = profile!;
@@ -56,6 +56,7 @@ export default function Home() {
         <Button title="Edit background" variant="secondary" onPress={() => router.push('/background')} />
       ) : null}
       <Button title="Edit profile" variant="secondary" onPress={() => router.push('/edit-profile')} />
+      <Button title="Back to the graph" variant="secondary" onPress={() => router.dismissTo('/')} />
       <Button title="Sign out" variant="secondary" onPress={() => supabase.auth.signOut()} />
     </Screen>
   );
