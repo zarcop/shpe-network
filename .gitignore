@@ -5,3 +5,5 @@ node_modules/
 .DS_Store
 !.env.deploy.example
 backups/
+# make hub-logos proposals, checked by a person before hub-logos-apply
+hub-logos.json

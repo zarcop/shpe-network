@@ -2,7 +2,7 @@
 -- Seed ids: person i is 00000000-0000-4000-8000-<i padded to 12> (seed.sql).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(8);
+select plan(11);
 
 create function pg_temp.act_as(p_id uuid) returns void language sql as $$
   select set_config('role', 'authenticated', true),
@@ -47,6 +47,17 @@ select ok(not exists (
             where not exists (select 1 from jsonb_array_elements(current_setting('test.graph')::jsonb->'hubs') h
                               where h->'id' = l->1)),
           'every link ends at a listed hub');
+
+select ok(exists (select 1 from jsonb_array_elements(current_setting('test.graph')::jsonb->'hubs') h
+                  where h->>'name' = 'University of Florida' and h->>'domain' = 'ufl.edu'),
+          'hubs carry their domain for the logo');
+select ok(exists (select 1 from jsonb_array_elements(current_setting('test.graph')::jsonb->'hubs') h
+                  where h->>'name' = 'Mexico' and h->>'country_code' = 'mx'),
+          'countries carry their code for the flag');
+
+reset role;
+select throws_ok($$update public.entities set domain = 'mexico.com' where kind = 'country' and name = 'Mexico'$$,
+                 '23514', null, 'only colleges and companies take a domain, and only clean ones');
 
 select pg_temp.act_as('00000000-0000-4000-8000-000000000999');
 select is(public.graph(), '{"people": [], "hubs": [], "links": []}'::jsonb,

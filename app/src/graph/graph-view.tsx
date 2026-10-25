@@ -5,6 +5,7 @@ import { View, type LayoutChangeEvent } from 'react-native';
 import { colors, hubColors } from '@/ui/theme';
 
 import type { GraphLink, GraphNode, HubNode } from './graph';
+import { hubImageUrl } from './hub-images';
 
 // force-graph adds layout coordinates to the node objects it is given.
 type Drawn = GraphNode & { x?: number; y?: number };
@@ -16,6 +17,10 @@ const PERSON_COLOR = '#A3A9B1';
 const LINK_COLOR = 'rgba(29, 34, 38, 0.07)';
 const LINK_DIM_COLOR = 'rgba(29, 34, 38, 0.025)';
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+// Public by design, like the Supabase publishable key. Unset: no logos, flags and major icons still show.
+const LOGO_KEY = process.env.EXPO_PUBLIC_LOGO_DEV_KEY;
+// Below this on-screen radius a logo is unreadable, so the hub stays a plain colored shape.
+const MIN_IMAGE_RADIUS_PX = 7;
 
 // Bigger hubs have more people; the square root keeps a 60-person college from swallowing the screen.
 const hubRadius = (hub: HubNode) => 3.5 + Math.sqrt(hub.members) * 1.5;
@@ -141,6 +146,46 @@ export function GraphView({
     let labels: Label[] = [];
     let meNode: Drawn | null = null;
 
+    // Each picture loads once; until it arrives (or if it never does) the hub keeps its shape.
+    const images = new Map<string, HTMLImageElement | null>();
+    function imageFor(hub: HubNode): HTMLImageElement | null {
+      const url = hubImageUrl(hub, LOGO_KEY);
+      if (!url) return null;
+      if (!images.has(url)) {
+        images.set(url, null);
+        const img = new Image();
+        img.onload = () => {
+          images.set(url, img);
+          redraw();
+        };
+        img.src = url;
+      }
+      return images.get(url)!;
+    }
+
+    function drawBadge(ctx: CanvasRenderingContext2D, hub: HubNode, img: HTMLImageElement, x: number, y: number,
+                       r: number, scale: number, focused: boolean) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+      ctx.save();
+      ctx.clip();
+      // Flags fill the circle; logos and major icons get breathing room and keep their own proportions.
+      const box = hub.kind === 'country' ? 2 * r : 1.3 * r;
+      const fit = Math.min(box / img.naturalWidth, box / img.naturalHeight);
+      const w = hub.kind === 'country' ? box : img.naturalWidth * fit;
+      const h = hub.kind === 'country' ? box : img.naturalHeight * fit;
+      ctx.drawImage(img, x - w / 2, y - h / 2, w, h);
+      ctx.restore();
+      // The ring keeps the kind's color, so you can still tell a college from a company at a glance.
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, 2 * Math.PI);
+      ctx.lineWidth = (focused ? 2.5 : 2) / scale;
+      ctx.strokeStyle = focused ? colors.text : hubColors[hub.kind];
+      ctx.stroke();
+    }
+
     function draw(n: Drawn, ctx: CanvasRenderingContext2D, scale: number) {
       const { selectedId: sel, highlight: lit, hoverId, meId: me } = view.current;
       const x = n.x!;
@@ -151,12 +196,17 @@ export function GraphView({
       ctx.globalAlpha = dim ? 0.12 : 1;
 
       if (n.type === 'hub') {
-        hubPath(ctx, n, x, y, r);
-        ctx.fillStyle = hubColors[n.kind];
-        ctx.fill();
-        ctx.lineWidth = (focused ? 2.5 : 1.5) / scale;
-        ctx.strokeStyle = focused ? colors.text : '#FFFFFF';
-        ctx.stroke();
+        const img = r * scale >= MIN_IMAGE_RADIUS_PX ? imageFor(n) : null;
+        if (img) {
+          drawBadge(ctx, n, img, x, y, r, scale, focused);
+        } else {
+          hubPath(ctx, n, x, y, r);
+          ctx.fillStyle = hubColors[n.kind];
+          ctx.fill();
+          ctx.lineWidth = (focused ? 2.5 : 1.5) / scale;
+          ctx.strokeStyle = focused ? colors.text : '#FFFFFF';
+          ctx.stroke();
+        }
         // Hubs ask for a label once they are big enough on screen; while something is selected, only its own do.
         if (focused || (sel ? !dim : r * scale > 11)) {
           labels.push({ text: n.name, x, y: y + r * 1.25 + 2 / scale, px: 11.5, weight: 600,

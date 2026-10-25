@@ -4,7 +4,7 @@ import type { HubKind } from '../background/hubs.ts';
 
 export type GraphPayload = {
   people: { id: string; name: string; headline: string | null; grad_year: number | null; linkedin_url: string | null }[];
-  hubs: { id: number; kind: HubKind; name: string }[];
+  hubs: { id: number; kind: HubKind; name: string; domain: string | null; country_code: string | null }[];
   links: [string, number][];
 };
 
@@ -16,7 +16,15 @@ export type PersonNode = {
   gradYear: number | null;
   linkedinUrl: string | null;
 };
-export type HubNode = { id: string; type: 'hub'; kind: HubKind; name: string; members: number };
+export type HubNode = {
+  id: string;
+  type: 'hub';
+  kind: HubKind;
+  name: string;
+  members: number;
+  domain: string | null;
+  country_code: string | null;
+};
 export type GraphNode = PersonNode | HubNode;
 export type GraphLink = { source: string; target: string };
 
@@ -43,7 +51,7 @@ export function buildGraph(payload: GraphPayload): Graph {
     });
   }
   for (const h of payload.hubs) {
-    nodes.set(hubId(h.id), { id: hubId(h.id), type: 'hub', kind: h.kind, name: h.name, members: 0 });
+    nodes.set(hubId(h.id), { ...h, id: hubId(h.id), type: 'hub', members: 0 });
   }
 
   const links: GraphLink[] = [];

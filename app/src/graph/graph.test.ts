@@ -9,9 +9,9 @@ const person = (id: string, name: string) => ({ id, name, headline: null, grad_y
 const payload: GraphPayload = {
   people: [person('ana', 'Ana'), person('luis', 'Luis'), person('sofia', 'Sofía'), person('me', 'Me')],
   hubs: [
-    { id: 1, kind: 'school', name: 'University of Florida' },
-    { id: 2, kind: 'company', name: 'Boeing' },
-    { id: 3, kind: 'country', name: 'Mexico' },
+    { id: 1, kind: 'school', name: 'University of Florida', domain: 'ufl.edu', country_code: null },
+    { id: 2, kind: 'company', name: 'Boeing', domain: null, country_code: null },
+    { id: 3, kind: 'country', name: 'Mexico', domain: null, country_code: 'mx' },
   ],
   links: [
     ['ana', 1],

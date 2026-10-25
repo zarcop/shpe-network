@@ -1,4 +1,4 @@
-.PHONY: setup reset test test-db test-app web push-staging push-production build-staging build-production backup-production restore-local
+.PHONY: setup reset test test-db test-app web push-staging push-production build-staging build-production backup-production restore-local hub-logos hub-logos-apply
 
 # Installs dependencies, starts local Supabase (ports 553xx), applies migrations and loads the seed.
 setup:
@@ -45,11 +45,26 @@ push-production:
 # (your local database) out of the build.
 build-staging:
 	@$(deploy-env); cd app && EXPO_NO_DOTENV=1 EXPO_PUBLIC_SUPABASE_URL="https://$$STAGING_PROJECT_REF.supabase.co" \
-		EXPO_PUBLIC_SUPABASE_KEY="$$STAGING_PUBLISHABLE_KEY" npx expo export --platform web --output-dir dist/staging
+		EXPO_PUBLIC_SUPABASE_KEY="$$STAGING_PUBLISHABLE_KEY" EXPO_PUBLIC_LOGO_DEV_KEY="$$LOGO_DEV_PUBLISHABLE_KEY" npx expo export --platform web --output-dir dist/staging
 
 build-production:
 	@$(deploy-env); cd app && EXPO_NO_DOTENV=1 EXPO_PUBLIC_SUPABASE_URL="https://$$PRODUCTION_PROJECT_REF.supabase.co" \
-		EXPO_PUBLIC_SUPABASE_KEY="$$PRODUCTION_PUBLISHABLE_KEY" npx expo export --platform web --output-dir dist/production
+		EXPO_PUBLIC_SUPABASE_KEY="$$PRODUCTION_PUBLISHABLE_KEY" EXPO_PUBLIC_LOGO_DEV_KEY="$$LOGO_DEV_PUBLISHABLE_KEY" npx expo export --platform web --output-dir dist/production
+
+# ───────────── Hub pictures (D18) ─────────────
+# Daily, with the backup: finds logos for colleges/companies people added and flags for new countries, writes
+# hub-logos.json to check, then hub-logos-apply saves it. Production by default; ENV=staging for staging.
+# Uses your Supabase CLI login (npx supabase login), read from the macOS keychain unless SUPABASE_ACCESS_TOKEN is set.
+hub-target = PROJECT_REF="$$( [ "$(ENV)" = staging ] && echo "$$STAGING_PROJECT_REF" || echo "$$PRODUCTION_PROJECT_REF" )"; \
+	export PROJECT_REF; echo "Hub pictures for $${ENV:-production} ($$PROJECT_REF)"; \
+	if [ -z "$$SUPABASE_ACCESS_TOKEN" ]; then t=$$(security find-generic-password -s "Supabase CLI" -w 2>/dev/null); \
+	case "$$t" in go-keyring-base64:*) t=$$(echo "$${t\#go-keyring-base64:}" | base64 -d);; esac; export SUPABASE_ACCESS_TOKEN="$$t"; fi
+
+hub-logos:
+	@$(deploy-env); $(hub-target); node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/hub-logos.ts find
+
+hub-logos-apply:
+	@$(deploy-env); $(hub-target); node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/hub-logos.ts apply
 
 # ───────────── Backups (the Free plan has none) ─────────────
 # Data only: the table structure is rebuilt from supabase/migrations. Keeps everyone's profile, background and
