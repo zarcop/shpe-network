@@ -4,14 +4,18 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/auth/session';
+import { loadKnownHubs } from '@/background/data';
 import { HUB_KINDS, type HubKind } from '@/background/hubs';
+import type { KnownHub } from '@/background/resume/parse';
 import { loadGraph } from '@/graph/data';
 import { Details, KIND_NAMES } from '@/graph/details';
-import { filterGraph, personId, type Graph } from '@/graph/graph';
+import { filterGraph, personId, type Graph, type PersonNode } from '@/graph/graph';
 import { GraphView } from '@/graph/graph-view';
 import { HubMark } from '@/graph/hub-mark';
+import { findPeople, parseQuery, type ParsedQuery, type SearchFilter } from '@/search/query';
+import { FilterChips, SearchBar, SearchResults } from '@/search/search-panel';
 import { Button } from '@/ui/kit';
-import { colors } from '@/ui/theme';
+import { colors, glass } from '@/ui/theme';
 
 // Home: everyone who's going, linked through the colleges, companies, majors and roots they share.
 export default function Home() {
@@ -22,19 +26,49 @@ export default function Home() {
   const [failed, setFailed] = useState(false);
   const [kinds, setKinds] = useState<ReadonlySet<HubKind>>(new Set(HUB_KINDS));
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Hub names and nicknames for reading search questions (the graph only has names).
+  const [known, setKnown] = useState<KnownHub[]>([]);
+  const [search, setSearch] = useState<ParsedQuery | null>(null);
 
   const load = useCallback(() => {
     setFailed(false);
-    loadGraph().then(setGraph, () => setFailed(true));
+    Promise.all([loadGraph(), loadKnownHubs()]).then(([g, k]) => {
+      setGraph(g);
+      setKnown(k);
+    }, () => setFailed(true));
   }, []);
   // Reload on every visit: you come back here after editing your background.
   useFocusEffect(load);
 
-  const shown = useMemo(() => (graph ? filterGraph(graph, kinds) : null), [graph, kinds]);
-  const highlight = useMemo(
-    () => new Set(selectedId && graph ? [selectedId, ...(graph.neighbors.get(selectedId) ?? [])] : []),
-    [graph, selectedId],
+  // While searching every kind is drawn, so nobody found is hidden by a kind switched off. Same set when all are
+  // on already: new graph data restarts the layout, and the found people would drift out of view.
+  const drawnKinds = search && kinds.size < HUB_KINDS.length ? ALL_KINDS : kinds;
+  const shown = useMemo(() => (graph ? filterGraph(graph, drawnKinds) : null), [graph, drawnKinds]);
+  const found = useMemo(() => (graph && search ? findPeople(graph, search.filters) : null), [graph, search]);
+  const highlight = useMemo(() => {
+    if (selectedId && graph) return new Set([selectedId, ...(graph.neighbors.get(selectedId) ?? [])]);
+    return new Set(found ? [...found.people, ...found.hubs] : []);
+  }, [graph, selectedId, found]);
+  const foundPeople = useMemo(
+    () =>
+      found && graph
+        ? [...found.people].map((id) => graph.nodes.get(id) as PersonNode).sort((a, b) => a.name.localeCompare(b.name))
+        : [],
+    [found, graph],
   );
+
+  function runSearch(text: string) {
+    if (!graph) return;
+    const names = [...graph.nodes.values()].filter((n) => n.type === 'person').map((n) => n.name);
+    const parsed = parseQuery(text, known, names);
+    setSelectedId(null);
+    setSearch(parsed.filters.length || parsed.unknown.length ? parsed : null);
+  }
+
+  function removeFilter(f: SearchFilter) {
+    const filters = search!.filters.filter((x) => x !== f);
+    setSearch(filters.length ? { filters, unknown: search!.unknown } : null);
+  }
 
   function toggle(kind: HubKind) {
     const next = new Set(kinds);
@@ -94,31 +128,43 @@ export default function Home() {
               <Text style={styles.avatarText}>{initials}</Text>
             </Pressable>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-            {HUB_KINDS.map((kind) => {
-              const on = kinds.has(kind);
-              return (
-                <Pressable
-                  key={kind}
-                  onPress={() => toggle(kind)}
-                  accessibilityRole="switch"
-                  accessibilityState={{ checked: on }}
-                  accessibilityLabel={`Show ${KIND_NAMES[kind].many}`}
-                  style={[styles.filter, !on && styles.filterOff]}
-                >
-                  <View style={!on && { opacity: 0.35 }}>
-                    <HubMark kind={kind} />
-                  </View>
-                  <Text style={[styles.filterText, !on && { color: colors.muted }]}>{KIND_NAMES[kind].many}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          <SearchBar onSearch={runSearch} onClear={() => setSearch(null)} active={!!search} />
+          {search ? (
+            <FilterChips filters={search.filters} onRemove={removeFilter} />
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+              {HUB_KINDS.map((kind) => {
+                const on = kinds.has(kind);
+                return (
+                  <Pressable
+                    key={kind}
+                    onPress={() => toggle(kind)}
+                    accessibilityRole="switch"
+                    accessibilityState={{ checked: on }}
+                    accessibilityLabel={`Show ${KIND_NAMES[kind].many}`}
+                    style={[styles.filter, !on && styles.filterOff]}
+                  >
+                    <View style={!on && { opacity: 0.35 }}>
+                      <HubMark kind={kind} />
+                    </View>
+                    <Text style={[styles.filterText, !on && { color: colors.muted }]}>{KIND_NAMES[kind].many}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )}
         </View>
 
         <View style={styles.bottom} pointerEvents="box-none">
           {graph && selectedId ? (
             <Details graph={graph} id={selectedId} meId={meId} onSelect={setSelectedId} />
+          ) : graph && search ? (
+            <SearchResults
+              people={foundPeople}
+              unknown={search.unknown}
+              onSelect={setSelectedId}
+              onClose={() => setSearch(null)}
+            />
           ) : graph && noBackground ? (
             <View style={styles.callout}>
               <Text style={styles.calloutTitle}>You’re not connected yet</Text>
@@ -147,12 +193,7 @@ export default function Home() {
   );
 }
 
-const glass = {
-  backgroundColor: 'rgba(255, 255, 255, 0.92)',
-  borderWidth: StyleSheet.hairlineWidth,
-  borderColor: colors.border,
-  boxShadow: '0 2px 12px rgba(29, 34, 38, 0.06)',
-} as const;
+const ALL_KINDS: ReadonlySet<HubKind> = new Set(HUB_KINDS);
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FCFCFB' },

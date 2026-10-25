@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import type { ReactNode } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { HubKind } from '@/background/hubs';
@@ -29,22 +30,49 @@ export function Details({
   const node = graph.nodes.get(id);
   if (!node) return null;
   return (
-    <View style={styles.card}>
-      <Pressable
-        onPress={() => onSelect(null)}
-        accessibilityRole="button"
-        accessibilityLabel="Close"
-        hitSlop={12}
-        style={styles.close}
-      >
-        <Text style={styles.closeText}>×</Text>
-      </Pressable>
+    <Card onClose={() => onSelect(null)}>
       {node.type === 'hub' ? (
         <HubDetails graph={graph} hub={node} meId={meId} onSelect={onSelect} />
       ) : (
         <PersonDetails graph={graph} person={node} meId={meId} onSelect={onSelect} />
       )}
+    </Card>
+  );
+}
+
+// The bottom card shared by details and search results.
+export function Card({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  return (
+    <View style={styles.card}>
+      <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={12} style={styles.close}>
+        <Text style={styles.closeText}>×</Text>
+      </Pressable>
+      {children}
     </View>
+  );
+}
+
+export function PeopleList({ people, onSelect }: { people: PersonNode[]; onSelect: (id: string) => void }) {
+  return (
+    <ScrollView style={styles.list} nestedScrollEnabled>
+      {people.map((m) => (
+        <Pressable
+          key={m.id}
+          onPress={() => onSelect(m.id)}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+        >
+          <Text style={styles.rowName} numberOfLines={1}>
+            {m.name}
+          </Text>
+          {m.headline ? (
+            <Text style={styles.rowMeta} numberOfLines={1}>
+              {m.headline}
+            </Text>
+          ) : null}
+        </Pressable>
+      ))}
+    </ScrollView>
   );
 }
 
@@ -121,25 +149,7 @@ function HubDetails({
         {members.length === 1 ? '1 person' : `${members.length} people`}
         {includesMe ? ', including you' : ''}
       </Text>
-      <ScrollView style={styles.list} nestedScrollEnabled>
-        {others.map((m) => (
-          <Pressable
-            key={m.id}
-            onPress={() => onSelect(m.id)}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <Text style={styles.rowName} numberOfLines={1}>
-              {m.name}
-            </Text>
-            {m.headline ? (
-              <Text style={styles.rowMeta} numberOfLines={1}>
-                {m.headline}
-              </Text>
-            ) : null}
-          </Pressable>
-        ))}
-      </ScrollView>
+      <PeopleList people={others} onSelect={onSelect} />
     </>
   );
 }

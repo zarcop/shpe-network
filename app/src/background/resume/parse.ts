@@ -1,3 +1,4 @@
+import { fold } from '../../lib/fold.ts';
 import { emptyHubs, type HubKind, type Hubs } from '../hubs.ts';
 
 import type { Line } from './pdf-lines';
@@ -90,7 +91,6 @@ function isLinkedInExport(lines: Line[]): boolean {
 
 // ───────────── Known hubs ─────────────
 
-const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Only entry headers count: a bullet like "• Built test tools for NASA teams" mentions a partner, not an employer.

@@ -1,3 +1,5 @@
+import { StyleSheet } from 'react-native';
+
 // LinkedIn's neutral surfaces and blue, with a SHPE-style navy and orange for the brand mark.
 export const colors = {
   background: '#F4F2EE',
@@ -19,4 +21,12 @@ export const hubColors = {
   company: '#EB6834',
   major: '#1BAF7A',
   country: '#B0306A',
+} as const;
+
+// Frosted panels floating over the graph: search bar, filter chips, summary.
+export const glass = {
+  backgroundColor: 'rgba(255, 255, 255, 0.92)',
+  borderWidth: StyleSheet.hairlineWidth,
+  borderColor: colors.border,
+  boxShadow: '0 2px 12px rgba(29, 34, 38, 0.06)',
 } as const;

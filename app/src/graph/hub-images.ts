@@ -2,6 +2,7 @@
 // (public/majors), and college and company logos come from Logo.dev by website domain. Shared by the graph (image URLs) and `make hub-logos` (finding domains and codes for
 // hubs people add, D18). No I/O here.
 import type { HubKind } from '../background/hubs.ts';
+import { fold } from '../lib/fold.ts';
 
 export type HubImageFields = { kind: HubKind; name?: string; domain?: string | null; country_code?: string | null };
 
@@ -32,7 +33,7 @@ const MAJOR_ICONS: [RegExp, string][] = [
 export function hubImageUrl(hub: HubImageFields, logoKey: string | undefined): string | null {
   if (hub.kind === 'country' && hub.country_code) return `/flags/${hub.country_code}.svg`;
   if (hub.kind === 'major') {
-    const icon = MAJOR_ICONS.find(([words]) => words.test(fold(hub.name ?? '')));
+    const icon = MAJOR_ICONS.find(([words]) => words.test(norm(hub.name ?? '')));
     return icon ? `/majors/${icon[1]}.svg` : null;
   }
   if ((hub.kind === 'school' || hub.kind === 'company') && hub.domain && logoKey) {
@@ -42,7 +43,7 @@ export function hubImageUrl(hub: HubImageFields, logoKey: string | undefined): s
   return null;
 }
 
-const fold = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+const norm = (s: string) => fold(s).replace(/\s+/g, ' ').trim();
 
 let countryCodes: Map<string, string> | null = null;
 
@@ -55,11 +56,11 @@ export function countryCodeFor(name: string): string | null {
       for (let b = 65; b <= 90; b++) {
         const code = String.fromCharCode(a, b);
         const regionName = names.of(code);
-        if (regionName && regionName !== code) countryCodes.set(fold(regionName), code.toLowerCase());
+        if (regionName && regionName !== code) countryCodes.set(norm(regionName), code.toLowerCase());
       }
     }
   }
-  return countryCodes.get(fold(name)) ?? null;
+  return countryCodes.get(norm(name)) ?? null;
 }
 
 export type SearchResult = { name: string; domain: string };
@@ -68,7 +69,7 @@ export type SearchResult = { name: string; domain: string };
 // otherwise the top result is only a guess, for a person to check.
 export function pickDomain(name: string, results: SearchResult[]): { domain: string; match: 'exact' | 'guess' } | null {
   const usable = results.filter((r) => DOMAIN.test(r.domain));
-  const exact = usable.find((r) => fold(r.name) === fold(name));
+  const exact = usable.find((r) => norm(r.name) === norm(name));
   if (exact) return { domain: exact.domain, match: 'exact' };
   return usable[0] ? { domain: usable[0].domain, match: 'guess' } : null;
 }

@@ -101,8 +101,7 @@ export function GraphView({
       .nodeLabel(() => '')
       .linkWidth((l) => (isLit(l) ? 1.2 : 0.6))
       .linkColor((l) => {
-        const { selectedId: sel } = view.current;
-        if (!sel) return LINK_COLOR;
+        if (!view.current.highlight.size) return LINK_COLOR;
         if (!isLit(l)) return LINK_DIM_COLOR;
         const hub = [l.source, l.target].find((e): e is HubNode & Drawn => typeof e !== 'string' && e.type === 'hub');
         return hub ? `${hubColors[hub.kind]}99` : LINK_COLOR;
@@ -136,9 +135,10 @@ export function GraphView({
     fg.d3Force('charge')?.strength((n: Drawn) => (n.type === 'hub' ? -40 - n.members * 6 : -10));
     fg.d3Force('link')?.distance(26);
 
+    // Lit while something is selected or searched for: both ends are in the highlight.
     function isLit(l: DrawnLink) {
-      const { selectedId: sel } = view.current;
-      return !!sel && (endId(l.source) === sel || endId(l.target) === sel);
+      const { highlight: lit } = view.current;
+      return lit.has(endId(l.source)) && lit.has(endId(l.target));
     }
 
     // Shapes are drawn per node; labels are only collected, then placed after every shape (below), so they sit on
@@ -192,7 +192,8 @@ export function GraphView({
       const y = n.y!;
       const r = radius(n, me);
       const focused = n.id === sel || n.id === hoverId;
-      const dim = !!sel && !lit.has(n.id);
+      const lighting = lit.size > 0;
+      const dim = lighting && !lit.has(n.id);
       ctx.globalAlpha = dim ? 0.12 : 1;
 
       if (n.type === 'hub') {
@@ -207,8 +208,8 @@ export function GraphView({
           ctx.strokeStyle = focused ? colors.text : '#FFFFFF';
           ctx.stroke();
         }
-        // Hubs ask for a label once they are big enough on screen; while something is selected, only its own do.
-        if (focused || (sel ? !dim : r * scale > 11)) {
+        // Hubs ask for a label once they are big enough on screen; while something is selected or searched for, only lit ones do.
+        if (focused || (lighting ? !dim : r * scale > 11)) {
           labels.push({ text: n.name, x, y: y + r * 1.25 + 2 / scale, px: 11.5, weight: 600,
                         rank: focused ? 1e6 : n.members });
         }
@@ -217,14 +218,15 @@ export function GraphView({
       } else {
         ctx.beginPath();
         ctx.arc(x, y, r, 0, 2 * Math.PI);
-        ctx.fillStyle = focused || (sel && !dim) ? colors.muted : PERSON_COLOR;
+        ctx.fillStyle = focused || (lighting && !dim) ? colors.muted : PERSON_COLOR;
         ctx.fill();
         if (focused) {
           ctx.lineWidth = 2 / scale;
           ctx.strokeStyle = colors.text;
           ctx.stroke();
         }
-        if (focused || (sel && !dim && scale > 1.8) || scale > 4) {
+        // While something is lit, only lit people get names: zoomed in, faded names are just clutter.
+        if (focused || (lighting ? !dim && scale > 1.8 : scale > 4)) {
           labels.push({ text: n.name, x, y: y + r + 2.5 / scale, px: 11, weight: 500, rank: focused ? 1e6 : -1 });
         }
       }
@@ -234,7 +236,8 @@ export function GraphView({
     function drawOnTop(ctx: CanvasRenderingContext2D, scale: number) {
       const me = meNode;
       if (me) {
-        const dim = !!view.current.selectedId && !view.current.highlight.has(me.id);
+        const { highlight: lit } = view.current;
+        const dim = lit.size > 0 && !lit.has(me.id);
         ctx.globalAlpha = dim ? 0.35 : 1;
         ctx.beginPath();
         ctx.arc(me.x!, me.y!, ME_RADIUS, 0, 2 * Math.PI);
@@ -296,6 +299,20 @@ export function GraphView({
       // Center it in the upper part of the screen: the detail card covers the bottom.
       const zoom = Math.max(fg.zoom(), 2.2);
       fg.centerAt(node.x, node.y! + (fg.height() * 0.2) / zoom, 500);
+      fg.zoom(zoom, 500);
+    } else if (highlight.size) {
+      // Search results: frame everyone found in the space between the search bar and the results card.
+      const lit = fg.graphData().nodes.filter((n) => highlight.has(n.id) && n.x !== undefined) as Drawn[];
+      if (!lit.length) return;
+      const xs = lit.map((n) => n.x!);
+      const ys = lit.map((n) => n.y!);
+      const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+      const free = { top: 150, bottom: 260, side: 40 };
+      const w = fg.width() - 2 * free.side;
+      const h = Math.max(fg.height() - free.top - free.bottom, 120);
+      const zoom = Math.min(Math.max(Math.min(w / (x1 - x0 + 40), h / (y1 - y0 + 40)), 0.5), 3);
+      const shift = (fg.height() / 2 - (free.top + h / 2)) / zoom;
+      fg.centerAt((x0 + x1) / 2, (y0 + y1) / 2 + shift, 500);
       fg.zoom(zoom, 500);
     }
   }, [selectedId, highlight]);
