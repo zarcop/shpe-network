@@ -1,4 +1,4 @@
-.PHONY: setup reset test test-db test-app web push-staging push-production build-staging build-production deploy-staging deploy-production email-setup backup-production restore-local hub-logos hub-logos-apply test-scripts
+.PHONY: setup reset test test-db test-app web push-staging push-production build-staging build-production deploy-staging deploy-production email-setup search-function backup-production restore-local hub-logos hub-logos-apply test-scripts
 
 # Installs dependencies, starts local Supabase (ports 553xx), applies migrations and loads the seed.
 setup:
@@ -24,7 +24,7 @@ test-app:
 	npm --prefix app run typecheck
 
 test-scripts:
-	node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test "scripts/*.test.ts"
+	node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test "scripts/*.test.ts" "supabase/functions/**/*.test.ts"
 
 # ───────────── Hosted projects (staging: fake people; production: real attendees) ─────────────
 # Settings come from .env.deploy (see .env.deploy.example). Run `npx supabase login` once first.
@@ -73,6 +73,13 @@ deploy-production: build-production
 # changing a template. Needs SMTP_USER and SMTP_PASS in .env.deploy.
 email-setup:
 	@$(deploy-env); $(api-target); node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/email-setup.ts
+
+# Smart search (D21): uploads the Anthropic key from supabase/functions/.env (git-ignored) as a project secret, then
+# deploys the function. Production by default, ENV=staging for staging. Again after changing the function.
+search-function:
+	@$(deploy-env); $(api-target); test -f supabase/functions/.env || { echo "Put ANTHROPIC_API_KEY=... in supabase/functions/.env first."; exit 1; }; \
+	npx supabase secrets set --env-file supabase/functions/.env --project-ref "$$PROJECT_REF" && \
+	npx supabase functions deploy smart-search --project-ref "$$PROJECT_REF"
 
 # ───────────── Hub pictures (D18) ─────────────
 # Daily, with the backup: finds logos for colleges/companies people added and flags for new countries, writes

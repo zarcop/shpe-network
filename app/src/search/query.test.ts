@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import type { HubKind } from '../background/hubs.ts';
 import type { KnownHub } from '../background/resume/parse.ts';
 import { buildGraph, personId, type GraphPayload } from '../graph/graph.ts';
-import { findPeople, parseQuery, type SearchFilter } from './query.ts';
+import { findPeople, mergeFilters, parseQuery, type SearchFilter } from './query.ts';
 
 const known: KnownHub[] = [
   { kind: 'school', name: 'University of Florida', aliases: ['uf'] },
@@ -110,4 +110,15 @@ test('years and names narrow it further, ignoring accents', () => {
 test('a hub nobody has joined yet finds nobody, and no filters find nobody', () => {
   assert.deepEqual(findPeople(graph, [hub('company', 'SpaceX')]), { people: new Set(), hubs: new Set() });
   assert.deepEqual(findPeople(graph, []), { people: new Set(), hubs: new Set() });
+});
+
+test('smarter search adds its filters after the ones already understood, without repeats, in kind order', () => {
+  const mine: SearchFilter[] = [hub('school', 'University of Florida'), { type: 'year', year: 2026 }];
+  const smart: SearchFilter[] = [hub('company', 'Boeing'), hub('school', 'University of Florida'), { type: 'year', year: 2026 }];
+  assert.deepEqual(mergeFilters(mine, smart), [
+    hub('school', 'University of Florida'),
+    hub('company', 'Boeing'),
+    { type: 'year', year: 2026 },
+  ]);
+  assert.deepEqual(mergeFilters(mine, []), mine);
 });

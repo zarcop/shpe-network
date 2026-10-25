@@ -114,6 +114,16 @@ export function parseQuery(text: string, known: KnownHub[], peopleNames: string[
   return { filters, unknown: [...new Set(words.filter((w) => !isName(w)))] };
 }
 
+const filterKey = (f: SearchFilter) => (f.type === 'hub' ? `${f.kind}:${f.name}` : f.type === 'year' ? `${f.year}` : `name:${f.text}`);
+const filterRank = (f: SearchFilter) => (f.type === 'hub' ? HUB_KINDS.indexOf(f.kind) : f.type === 'year' ? 10 : 11);
+
+// Smarter search's filters join the ones already understood: no repeats, same order as the chips (kind, years, name).
+export function mergeFilters(mine: SearchFilter[], smart: SearchFilter[]): SearchFilter[] {
+  const merged = [...mine];
+  for (const f of smart) if (!merged.some((m) => filterKey(m) === filterKey(f))) merged.push(f);
+  return merged.sort((a, b) => filterRank(a) - filterRank(b));
+}
+
 // Who matches: any hub within a kind, every kind asked about (UF and (Boeing or NASA)), any of the years, and every
 // word of a name. Also returns the asked-about hubs that are on the graph, to light them up with the people.
 export function findPeople(graph: Graph, filters: SearchFilter[]): { people: Set<string>; hubs: Set<string> } {

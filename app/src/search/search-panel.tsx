@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Card, KIND_NAMES, PeopleList } from '@/graph/details';
 import type { PersonNode } from '@/graph/graph';
@@ -70,14 +70,20 @@ export function FilterChips({ filters, onRemove }: { filters: SearchFilter[]; on
   );
 }
 
+export type SmartState = { busy: boolean; message?: string };
+
 export function SearchResults({
   people,
   unknown,
+  smart,
+  onSmarter,
   onSelect,
   onClose,
 }: {
   people: PersonNode[];
   unknown: string[];
+  smart: SmartState;
+  onSmarter: () => void;
   onSelect: (id: string) => void;
   onClose: () => void;
 }) {
@@ -87,10 +93,22 @@ export function SearchResults({
         {people.length === 0 ? 'No one matches yet' : people.length === 1 ? '1 person matches' : `${people.length} people match`}
       </Text>
       {unknown.length ? (
-        <Text style={styles.meta}>Didn’t understand: {unknown.join(', ')}</Text>
+        <View style={styles.smart}>
+          <Text style={[styles.meta, styles.smartText]}>Didn’t understand: {unknown.join(', ')}</Text>
+          <Pressable
+            onPress={onSmarter}
+            disabled={smart.busy}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.smartButton, pressed && { opacity: 0.85 }]}
+          >
+            {smart.busy ? <ActivityIndicator color={colors.surface} size="small" /> : null}
+            <Text style={styles.smartButtonText}>✨ Search smarter</Text>
+          </Pressable>
+        </View>
       ) : people.length === 0 ? (
         <Text style={styles.meta}>Remove a filter to see more people.</Text>
       ) : null}
+      {smart.message ? <Text style={styles.meta}>{smart.message}</Text> : null}
       <PeopleList people={people} onSelect={onSelect} />
     </Card>
   );
@@ -107,4 +125,16 @@ const styles = StyleSheet.create({
   chipRemove: { fontSize: 16, lineHeight: 16, color: colors.muted },
   title: { fontSize: 19, fontWeight: '600', color: colors.text, paddingRight: 28 },
   meta: { fontSize: 14, lineHeight: 20, color: colors.muted },
+  smart: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  smartText: { flex: 1, minWidth: 160 },
+  smartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.navy,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  smartButtonText: { color: colors.surface, fontSize: 14, fontWeight: '600' },
 });

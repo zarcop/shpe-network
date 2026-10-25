@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -12,8 +12,9 @@ import { Details, KIND_NAMES } from '@/graph/details';
 import { filterGraph, personId, type Graph, type PersonNode } from '@/graph/graph';
 import { GraphView } from '@/graph/graph-view';
 import { HubMark } from '@/graph/hub-mark';
-import { findPeople, parseQuery, type ParsedQuery, type SearchFilter } from '@/search/query';
-import { FilterChips, SearchBar, SearchResults } from '@/search/search-panel';
+import { smartSearch } from '@/search/data';
+import { findPeople, mergeFilters, parseQuery, type ParsedQuery, type SearchFilter } from '@/search/query';
+import { FilterChips, SearchBar, SearchResults, type SmartState } from '@/search/search-panel';
 import { Button } from '@/ui/kit';
 import { colors, glass } from '@/ui/theme';
 
@@ -28,7 +29,11 @@ export default function Home() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Hub names and nicknames for reading search questions (the graph only has names).
   const [known, setKnown] = useState<KnownHub[]>([]);
-  const [search, setSearch] = useState<ParsedQuery | null>(null);
+  // The question is kept for smarter search, which reads the whole thing, not just the leftover words.
+  const [search, setSearch] = useState<(ParsedQuery & { question: string }) | null>(null);
+  const [smart, setSmart] = useState<SmartState>({ busy: false });
+  const latestSearch = useRef(search);
+  latestSearch.current = search;
 
   const load = useCallback(() => {
     setFailed(false);
@@ -62,12 +67,33 @@ export default function Home() {
     const names = [...graph.nodes.values()].filter((n) => n.type === 'person').map((n) => n.name);
     const parsed = parseQuery(text, known, names);
     setSelectedId(null);
-    setSearch(parsed.filters.length || parsed.unknown.length ? parsed : null);
+    setSmart({ busy: false });
+    setSearch(parsed.filters.length || parsed.unknown.length ? { ...parsed, question: text } : null);
   }
 
   function removeFilter(f: SearchFilter) {
     const filters = search!.filters.filter((x) => x !== f);
-    setSearch(filters.length ? { filters, unknown: search!.unknown } : null);
+    setSearch(filters.length ? { ...search!, filters } : null);
+  }
+
+  async function searchSmarter() {
+    const asked = search!;
+    setSmart({ busy: true });
+    const result = await smartSearch(asked.question);
+    // A newer search (or a removed chip) replaced this one while waiting: drop the answer.
+    if (latestSearch.current !== asked) return;
+    if (!result.ok) {
+      setSmart({ busy: false, message: result.message });
+      return;
+    }
+    if (result.filters.length) {
+      setSearch({ ...asked, filters: mergeFilters(asked.filters, result.filters), unknown: [] });
+    }
+    const left = `${result.remaining} smarter ${result.remaining === 1 ? 'search' : 'searches'} left today.`;
+    setSmart({
+      busy: false,
+      message: result.filters.length ? left : `Smarter search couldn’t match that to anyone’s background either. ${left}`,
+    });
   }
 
   function toggle(kind: HubKind) {
@@ -162,6 +188,8 @@ export default function Home() {
             <SearchResults
               people={foundPeople}
               unknown={search.unknown}
+              smart={smart}
+              onSmarter={searchSmarter}
               onSelect={setSelectedId}
               onClose={() => setSearch(null)}
             />
