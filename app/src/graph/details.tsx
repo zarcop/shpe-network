@@ -98,6 +98,7 @@ function PersonDetails({
         {isMe ? `${person.name} (you)` : person.name}
       </Text>
       {meta ? <Text style={styles.meta}>{meta}</Text> : null}
+      {!isMe && person.linkedinUrl ? <LinkedInButton url={person.linkedinUrl} /> : null}
       {!isMe && shared.size ? (
         <Text style={styles.shared}>
           You both: {hubs.filter((h) => shared.has(h.id)).map((h) => h.name).join(', ')}
@@ -114,8 +115,6 @@ function PersonDetails({
       )}
       {isMe ? (
         <TextButton title={hubs.length ? 'Edit background' : 'Add your background'} onPress={() => router.push('/background')} />
-      ) : person.linkedinUrl ? (
-        <TextButton title="View LinkedIn profile" onPress={() => Linking.openURL(person.linkedinUrl!)} />
       ) : null}
     </>
   );
@@ -170,6 +169,22 @@ function HubChip({ hub, shared, onPress }: { hub: HubNode; shared: boolean; onPr
   );
 }
 
+// LinkedIn's blue and "in" mark, so the way to connect is the first thing on someone's card.
+function LinkedInButton({ url }: { url: string }) {
+  return (
+    <Pressable
+      onPress={() => Linking.openURL(url)}
+      accessibilityRole="link"
+      style={({ pressed }) => [styles.linkedIn, pressed && { backgroundColor: colors.primaryPressed }]}
+    >
+      <View style={styles.linkedInMark}>
+        <Text style={styles.linkedInMarkText}>in</Text>
+      </View>
+      <Text style={styles.linkedInText}>View LinkedIn profile</Text>
+    </Pressable>
+  );
+}
+
 function TextButton({ title, onPress }: { title: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" hitSlop={8} style={styles.textButton}>
@@ -217,6 +232,28 @@ const styles = StyleSheet.create({
   rowPressed: { backgroundColor: colors.background },
   rowName: { fontSize: 15, fontWeight: '500', color: colors.text },
   rowMeta: { fontSize: 13, color: colors.muted, marginTop: 1 },
+  linkedIn: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 20,
+    paddingLeft: 6,
+    paddingRight: 14,
+    paddingVertical: 6,
+    marginTop: 4,
+  },
+  linkedInMark: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  linkedInMarkText: { color: colors.primary, fontSize: 14, fontWeight: '800', lineHeight: 16, letterSpacing: -0.5 },
+  linkedInText: { color: colors.surface, fontSize: 15, fontWeight: '600' },
   textButton: { alignSelf: 'flex-start', marginTop: 6 },
   textButtonText: { fontSize: 15, fontWeight: '600', color: colors.primary },
 });
