@@ -5,6 +5,7 @@ import { View, type LayoutChangeEvent } from 'react-native';
 import { colors, hubColors } from '@/ui/theme';
 
 import type { GraphLink, GraphNode, HubNode } from './graph';
+import { isTap, nodeAt } from './hit-test';
 import { hubImageUrl } from './hub-images';
 
 // force-graph adds layout coordinates to the node objects it is given.
@@ -26,6 +27,8 @@ const MIN_IMAGE_RADIUS_PX = 7;
 const hubRadius = (hub: HubNode) => 3.5 + Math.sqrt(hub.members) * 1.5;
 const radius = (n: Drawn, meId: string) =>
   n.type === 'hub' ? hubRadius(n) : n.id === meId ? ME_RADIUS : PERSON_RADIUS;
+// Hit targets stay finger-sized at any zoom.
+const hitRadius = (n: Drawn, meId: string, scale: number) => Math.max(radius(n, meId), 10 / scale);
 
 function hubPath(ctx: CanvasRenderingContext2D, hub: HubNode, x: number, y: number, r: number) {
   ctx.beginPath();
@@ -109,12 +112,9 @@ export function GraphView({
       .nodePointerAreaPaint((n, color, ctx, scale) => {
         ctx.fillStyle = color;
         ctx.beginPath();
-        // Hit targets stay finger-sized at any zoom.
-        ctx.arc(n.x!, n.y!, Math.max(radius(n, view.current.meId), 10 / scale), 0, 2 * Math.PI);
+        ctx.arc(n.x!, n.y!, hitRadius(n, view.current.meId, scale), 0, 2 * Math.PI);
         ctx.fill();
       })
-      .onNodeClick((n) => select.current(n.id))
-      .onBackgroundClick(() => select.current(null))
       .onNodeHover((n) => {
         element.style.cursor = n ? 'pointer' : 'grab';
         view.current.hoverId = n?.id ?? null;
@@ -134,6 +134,34 @@ export function GraphView({
     // Hubs push apart in proportion to their size; people barely repel, so they cluster around their hubs.
     fg.d3Force('charge')?.strength((n: Drawn) => (n.type === 'hub' ? -40 - n.members * 6 : -10));
     fg.d3Force('link')?.distance(26);
+
+    // Taps are ours, not force-graph's onNodeClick (see hit-test.ts). A second finger means a pinch, not a tap.
+    let pressed: { x: number; y: number } | null = null;
+    const onDown = (ev: PointerEvent) => {
+      pressed = ev.isPrimary ? { x: ev.clientX, y: ev.clientY } : null;
+    };
+    const onUp = (ev: PointerEvent) => {
+      if (ev.isPrimary && pressed && isTap(pressed, { x: ev.clientX, y: ev.clientY })) tap(ev);
+      pressed = null;
+    };
+    const onCancel = () => {
+      pressed = null;
+    };
+    element.addEventListener('pointerdown', onDown);
+    element.addEventListener('pointerup', onUp);
+    element.addEventListener('pointercancel', onCancel);
+
+    function tap(ev: PointerEvent) {
+      const box = element.getBoundingClientRect();
+      const at = fg.screen2GraphCoords(ev.clientX - box.left, ev.clientY - box.top);
+      const { meId: me } = view.current;
+      const scale = fg.zoom();
+      // Same stacking as the drawing: you on top, then hubs, then people.
+      const targets = fg.graphData().nodes.map((n) => ({
+        id: n.id, x: n.x, y: n.y, r: hitRadius(n, me, scale), layer: n.id === me ? 2 : n.type === 'hub' ? 1 : 0,
+      }));
+      select.current(nodeAt(targets, at.x, at.y)?.id ?? null);
+    }
 
     // Lit while something is selected or searched for: both ends are in the highlight.
     function isLit(l: DrawnLink) {
@@ -275,6 +303,9 @@ export function GraphView({
       .onRenderFramePost(drawOnTop);
     graph.current = fg;
     return () => {
+      element.removeEventListener('pointerdown', onDown);
+      element.removeEventListener('pointerup', onUp);
+      element.removeEventListener('pointercancel', onCancel);
       fg._destructor();
       graph.current = null;
     };
