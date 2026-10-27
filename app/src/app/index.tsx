@@ -11,7 +11,6 @@ import { loadGraph } from '@/graph/data';
 import { Details, KIND_NAMES } from '@/graph/details';
 import { filterGraph, personId, type Graph, type PersonNode } from '@/graph/graph';
 import { GraphView } from '@/graph/graph-view';
-import { HubMark } from '@/graph/hub-mark';
 import { smartSearch } from '@/search/data';
 import { findPeople, mergeFilters, parseQuery, type ParsedQuery, type SearchFilter } from '@/search/query';
 import { FilterChips, SearchBar, SearchResults, type SmartState } from '@/search/search-panel';
@@ -168,12 +167,10 @@ export default function Home() {
                     accessibilityRole="switch"
                     accessibilityState={{ checked: on }}
                     accessibilityLabel={`Show ${KIND_NAMES[kind].many}`}
-                    style={[styles.filter, !on && styles.filterOff]}
+                    style={({ pressed }) => [styles.filter, on && styles.filterOn, pressed && { opacity: 0.8 }]}
                   >
-                    <View style={!on && { opacity: 0.35 }}>
-                      <HubMark kind={kind} />
-                    </View>
-                    <Text style={[styles.filterText, !on && { color: colors.muted }]}>{KIND_NAMES[kind].many}</Text>
+                    {on ? <Text style={styles.filterCheck}>✓</Text> : null}
+                    <Text style={[styles.filterText, on && styles.filterTextOn]}>{KIND_NAMES[kind].many}</Text>
                   </Pressable>
                 );
               })}
@@ -244,17 +241,21 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: colors.surface, fontSize: 13, fontWeight: '700' },
   filters: { gap: 8 },
+  // On is solid navy with a check, off a plain outline, so which kinds are showing reads at a glance.
   filter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 18,
     ...glass,
+    borderWidth: 1,
   },
-  filterOff: { backgroundColor: 'rgba(244, 242, 238, 0.85)', boxShadow: 'none' },
-  filterText: { fontSize: 14, fontWeight: '500', color: colors.text },
+  filterOn: { backgroundColor: colors.navy, borderColor: colors.navy },
+  filterCheck: { color: colors.surface, fontSize: 13, fontWeight: '800' },
+  filterText: { fontSize: 14, fontWeight: '500', color: colors.muted },
+  filterTextOn: { color: colors.surface, fontWeight: '600' },
   bottom: { flex: 1, justifyContent: 'flex-end', padding: 16 },
   summary: {
     flexDirection: 'row',
